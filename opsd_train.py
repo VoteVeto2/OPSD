@@ -2,7 +2,7 @@ import os
 import wandb
 
 from datasets import load_dataset
-from transformers import AutoTokenizer, GenerationConfig
+from transformers import AutoTokenizer, GenerationConfig, TrainerCallback
 
 from trl import (
     LogCompletionsCallback,
@@ -16,6 +16,18 @@ from trl import (
 from trl.experimental.gold import GOLDConfig
 from opsd_trainer import OPSDTrainer
 from dataclasses import dataclass, field
+
+class JsonlLogCallback(TrainerCallback):
+    """Append every logged metrics dict (with its global step) to <output_dir>/log_history.jsonl."""
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if state.is_world_process_zero and logs:
+            import json
+
+            os.makedirs(args.output_dir, exist_ok=True)
+            with open(os.path.join(args.output_dir, "log_history.jsonl"), "a") as f:
+                f.write(json.dumps({"step": state.global_step, **logs}) + "\n")
+
 
 # Enable logging in a Hugging Face Space
 os.environ.setdefault("TRACKIO_SPACE_ID", "trl-trackio")
@@ -292,6 +304,8 @@ if __name__ == "__main__":
         )
         completions_callback = LogCompletionsCallback(trainer, generation_config, num_prompts=8)
         trainer.add_callback(completions_callback)
+
+    trainer.add_callback(JsonlLogCallback())
 
     trainer.train()
 

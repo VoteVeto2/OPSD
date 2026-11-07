@@ -93,6 +93,7 @@ def load_vllm_model(
     tensor_parallel_size: int = 1,
     max_model_len: int = None,
     enable_thinking: bool = True,
+    enforce_eager: bool = True,
 ):
     """
     Load a model using vLLM for fast inference.
@@ -126,7 +127,7 @@ def load_vllm_model(
         "trust_remote_code": True,
         "max_model_len": max_model_len,
         "distributed_executor_backend": "mp",
-        "enforce_eager": True,
+        "enforce_eager": enforce_eager,
     }
 
     if lora_adapter_path is not None:
@@ -630,6 +631,13 @@ def main():
         help="Maximum model context length (auto: 40960 for thinking, 32768 for non-thinking)",
     )
     parser.add_argument(
+        "--no_enforce_eager",
+        dest="enforce_eager",
+        action="store_false",
+        default=True,
+        help="Enable CUDA graphs in vLLM (faster decoding on a single GPU; sampling distribution unchanged)",
+    )
+    parser.add_argument(
         "--val_n", type=int, default=6, help="Number of solutions to sample per problem (default: 6)"
     )
 
@@ -709,6 +717,7 @@ def main():
         tensor_parallel_size=args.tensor_parallel_size,
         max_model_len=args.max_model_len,
         enable_thinking=args.enable_thinking,
+        enforce_eager=args.enforce_eager,
     )
 
     # Setup LoRA request if checkpoint is provided
